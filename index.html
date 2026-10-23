@@ -100,14 +100,13 @@
 
   .word-bank{
     position:relative;
-    height:300px;
+    height:280px;
     border-radius:10px;
     margin-top:8px;
     overflow:auto;
     border:1px solid rgba(255,255,255,0.02);
     background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00));
     padding:8px;
-    -webkit-overflow-scrolling: touch;
   }
 
   .word-magnet{
@@ -129,10 +128,10 @@
     -webkit-user-drag: none;
     transform-origin:center center;
   }
-  .word-magnet.dragging{ cursor:grabbing; box-shadow:0 20px 50px rgba(0,0,0,0.6); z-index:9999 !important; }
+  .word-magnet.dragging{ cursor:grabbing; box-shadow:0 20px 50px rgba(0,0,0,0.6); z-index:99999 !important; }
 
   .play-area{
-    min-height:500px;
+    min-height:480px;
     flex:1;
     border-radius:12px;
     background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
@@ -418,7 +417,7 @@ function regenerateWordPool(){
   clearBoard();
   const pool = generateBalancedRoundPool();
   const bankW = wordBank.clientWidth || 600;
-  const bankH = wordBank.clientHeight || 300;
+  const bankH = wordBank.clientHeight || 280;
 
   pool.forEach(text => {
     const el = document.createElement('div');
@@ -444,60 +443,75 @@ function regenerateWordPool(){
 function makeMagnetDraggable(magnet){
   const el = magnet.el;
   let dragging = false;
-  let offsetX = 0, offsetY = 0;
+  let startX = 0, startY = 0;
+  let initLeft = 0, initTop = 0;
 
-  function start(clientX, clientY){
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault();
     dragging = true;
     el.classList.add('dragging');
-    const r = el.getBoundingClientRect();
-    offsetX = clientX - r.left;
-    offsetY = clientY - r.top;
-  }
+    try { el.setPointerCapture(e.pointerId); } catch(err){}
 
-  function move(clientX, clientY){
-    if(!dragging) return;
-    let x = clientX - offsetX;
-    let y = clientY - offsetY;
+    startX = e.clientX;
+    startY = e.clientY;
 
-    if(!magnet._absolute){
-      magnet._absolute = true;
+    // Move to body if currently in wordBank to allow smooth floating across containers
+    if(el.parentElement === wordBank){
+      const rect = el.getBoundingClientRect();
+      const parentRect = document.body.getBoundingClientRect();
+      initLeft = rect.left - parentRect.left;
+      initTop = rect.top - parentRect.top;
       document.body.appendChild(el);
+      el.style.left = initLeft + 'px';
+      el.style.top = initTop + 'px';
+    } else {
+      initLeft = parseFloat(el.style.left) || magnet.x;
+      initTop = parseFloat(el.style.top) || magnet.y;
     }
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-    magnet.x = x; magnet.y = y;
-  }
+  });
 
-  function end(clientX, clientY){
+  el.addEventListener('pointermove', e => {
+    if(!dragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    const newX = initLeft + dx;
+    const newY = initTop + dy;
+
+    el.style.left = newX + 'px';
+    el.style.top = newY + 'px';
+    magnet.x = newX;
+    magnet.y = newY;
+  });
+
+  el.addEventListener('pointerup', e => {
     if(!dragging) return;
     dragging = false;
     el.classList.remove('dragging');
+    try { el.releasePointerCapture(e.pointerId); } catch(err){}
 
     const playRect = playArea.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const centerX = elRect.left + elRect.width / 2;
+    const centerY = elRect.top + elRect.height / 2;
 
-    if(clientX >= playRect.left && clientX <= playRect.right && clientY >= playRect.top && clientY <= playRect.bottom){
+    if(centerX >= playRect.left && centerX <= playRect.right && centerY >= playRect.top && centerY <= playRect.bottom){
       magnet.inPlay = true;
-      magnet.x = clientX - playRect.left - (el.offsetWidth/2);
-      magnet.y = clientY - playRect.top - (el.offsetHeight/2);
+      magnet.x = centerX - playRect.left - (elRect.width / 2);
+      magnet.y = centerY - playRect.top - (elRect.height / 2);
       playArea.appendChild(el);
       el.style.left = magnet.x + 'px';
       el.style.top = magnet.y + 'px';
-      magnet._absolute = false;
     } else {
-      const bankRect = wordBank.getBoundingClientRect();
       magnet.inPlay = false;
+      const bankRect = wordBank.getBoundingClientRect();
       wordBank.appendChild(el);
       magnet.x = Math.round(rand(10, Math.max(50, bankRect.width - 140)));
       magnet.y = Math.round(rand(10, Math.max(20, bankRect.height - 45)));
       el.style.left = magnet.x + 'px';
       el.style.top = magnet.y + 'px';
-      magnet._absolute = false;
     }
-  }
-
-  el.addEventListener('pointerdown', e => { e.preventDefault(); start(e.clientX, e.clientY); });
-  window.addEventListener('pointermove', e => { if(dragging) move(e.clientX, e.clientY); });
-  window.addEventListener('pointerup', e => { if(dragging) end(e.clientX, e.clientY); });
+  });
 }
 
 function createPlayerMarkers(){
@@ -529,29 +543,33 @@ function createPlayerMarkers(){
 function makeMarkerDraggable(marker){
   const el = marker.el;
   let dragging = false;
-  let offsetX = 0, offsetY = 0;
+  let startX = 0, startY = 0, initLeft = 0, initTop = 0;
 
   el.addEventListener('pointerdown', e => {
     e.preventDefault();
     dragging = true;
-    const r = el.getBoundingClientRect();
-    offsetX = e.clientX - r.left;
-    offsetY = e.clientY - r.top;
+    try { el.setPointerCapture(e.pointerId); } catch(err){}
+    startX = e.clientX;
+    startY = e.clientY;
+    initLeft = parseFloat(el.style.left) || marker.x;
+    initTop = parseFloat(el.style.top) || marker.y;
   });
 
-  window.addEventListener('pointermove', e => {
+  el.addEventListener('pointermove', e => {
     if(!dragging) return;
     const areaRect = playArea.getBoundingClientRect();
-    let x = e.clientX - areaRect.left - offsetX;
-    let y = e.clientY - areaRect.top - offsetY;
-    x = clamp(x, 0, areaRect.width - el.offsetWidth);
-    y = clamp(y, 0, areaRect.height - el.offsetHeight);
+    const x = clamp(initLeft + (e.clientX - startX), 0, areaRect.width - el.offsetWidth);
+    const y = clamp(initTop + (e.clientY - startY), 0, areaRect.height - el.offsetHeight);
     el.style.left = x + 'px';
     el.style.top = y + 'px';
     marker.x = x; marker.y = y;
   });
 
-  window.addEventListener('pointerup', () => { dragging = false; });
+  el.addEventListener('pointerup', e => {
+    if(!dragging) return;
+    dragging = false;
+    try { el.releasePointerCapture(e.pointerId); } catch(err){}
+  });
 }
 
 function startRound(){
@@ -593,8 +611,8 @@ function getPlayerMagnetAssignments(){
     let bestPlayer = 0;
 
     markers.forEach((mk, pIdx) => {
-      const dx = (m.x + 40) - (mk.x + 42);
-      const dy = (m.y + 15) - (mk.y + 42);
+      const dx = m.x - mk.x;
+      const dy = m.y - mk.y;
       const dist = Math.sqrt(dx*dx + dy*dy);
 
       if(dist < bestDist){
@@ -606,8 +624,8 @@ function getPlayerMagnetAssignments(){
     assignments[bestPlayer].push(m);
   });
 
-  // Sort left to right for natural reading
-  assignments.forEach(list => list.sort((a,b) => (a.y - b.y > 30 ? 1 : a.x - b.x)));
+  // Sort left-to-right for natural sentence reading order
+  assignments.forEach(list => list.sort((a,b) => (Math.abs(a.y - b.y) > 35 ? a.y - b.y : a.x - b.x)));
   return assignments;
 }
 
@@ -621,14 +639,12 @@ function openRatingsModal(){
     <div class="rating-grid" style="margin-top:16px">`;
 
   for(let i=0; i<chosenPlayers; i++){
-    const playerMagnets = assigned[i] || [];
-
     html += `<div class="rating-row">
       <div style="flex:1;min-width:0">
         <div style="font-weight:800;margin-bottom:6px">${escapeHtml(activePlayers[i])}</div>
-        <div class="player-words-container" data-player="${i}" style="display:flex;flex-wrap:wrap;align-items:center;min-height:36px">`;
+        <div class="player-words-container" data-player="${i}" style="display:flex;flex-wrap:wrap;align-items:center;min-height:36px;gap:6px">`;
 
-    if(playerMagnets.length === 0){
+    if((assigned[i] || []).length === 0){
       html += `<span style="font-size:0.85rem;color:#888;font-style:italic">No magnets near marker</span>`;
     }
 
