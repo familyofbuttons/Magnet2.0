@@ -2,6 +2,902 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Magnetic Mayhem</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ffb347">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="pwa-icons/icon-192.png">
+
+<style>
+  *{box-sizing:border-box}
+  :root{
+    --bg-dark: linear-gradient(180deg,#0a0c0f 0%, #06070a 60%);
+    --muted:#bfc4d6;
+    --accent:#ffb347;
+    --p1:#ff4b6a; --p2:#4da6ff; --p3:#4cd964; --p4:#ffd93b;
+    --glass: rgba(255,255,255,0.04);
+    --wizard-bg: rgba(250,250,250,0.98);
+    --wizard-text: #111;
+  }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg-dark);
+    color: var(--muted);
+    overflow: hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .container{
+    width:100%;
+    max-width:1800px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    height:100vh;
+    padding:18px;
+    margin:0 auto;
+    overflow:auto;
+  }
+
+  .header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px;
+    border-radius:12px;
+    background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    box-shadow:0 8px 30px rgba(0,0,0,0.6);
+    position:sticky;
+    top:0;
+    z-index:40;
+  }
+
+  .title{font-weight:800;color:#fff;font-size:1.2rem;}
+  .subtitle{font-size:0.85rem;color:var(--muted)}
+  .controls-inline{display:flex;gap:12px;align-items:center}
+
+  .top-bank{
+    padding:12px;
+    border-radius:12px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+    border:1px solid rgba(255,255,255,0.03);
+  }
+
+  .bank-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+
+  .bank-controls{display:flex;gap:8px;align-items:center}
+
+  .btn{
+    padding:8px 12px;
+    border-radius:999px;
+    background:var(--glass);
+    border:1px solid rgba(255,255,255,0.04);
+    color:var(--muted);
+    cursor:pointer;
+    user-select:none;
+    font-size:0.85rem;
+  }
+
+  .btn-primary{
+    padding:10px 16px;
+    border-radius:999px;
+    background:linear-gradient(90deg,var(--accent),#ff7b00);
+    border:none;
+    color:#2b1300;
+    font-weight:700;
+    cursor:pointer;
+  }
+
+  .word-bank{
+    position:relative;
+    height:300px;
+    border-radius:10px;
+    margin-top:8px;
+    overflow:auto;
+    border:1px solid rgba(255,255,255,0.02);
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00));
+    padding:8px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .word-magnet{
+    position:absolute;
+    padding:10px 14px;
+    background:#fff;
+    color:#111;
+    border-radius:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.45);
+    font-weight:800;
+    cursor:grab;
+    user-select:none;
+    white-space:nowrap;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:1rem;
+    touch-action: none;
+    -webkit-user-drag: none;
+    transform-origin:center center;
+  }
+  .word-magnet.dragging{ cursor:grabbing; box-shadow:0 20px 50px rgba(0,0,0,0.6); z-index:9999 !important; }
+
+  .play-area{
+    min-height:500px;
+    flex:1;
+    border-radius:12px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+    border:1px solid rgba(255,255,255,0.03);
+    position:relative;
+    overflow:hidden;
+    padding:12px;
+  }
+
+  .play-hint{ position:absolute; bottom:12px; left:12px; font-size:0.8rem; color:rgba(255,255,255,0.2); pointer-events:none; }
+
+  .player-marker{
+    position:absolute;
+    width:84px;
+    height:84px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:900;
+    color:#111;
+    border:3px solid rgba(255,255,255,0.9);
+    box-shadow:0 12px 36px rgba(0,0,0,0.6);
+    user-select:none;
+    overflow:hidden;
+    touch-action: none;
+    cursor:grab;
+  }
+
+  .marker-p1{background:var(--p1)}
+  .marker-p2{background:var(--p2)}
+  .marker-p3{background:var(--p3)}
+  .marker-p4{background:var(--p4)}
+
+  .marker-img{ width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
+
+  .wizard-overlay, .settings-overlay{
+    position:fixed;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index:10050;
+  }
+
+  .wizard-card, .settings-card{
+    width:92%;
+    max-width:700px;
+    border-radius:16px;
+    padding:24px;
+    background:var(--wizard-bg);
+    color:var(--wizard-text);
+    box-shadow:0 20px 60px rgba(0,0,0,0.7);
+    max-height:90vh;
+    overflow:auto;
+  }
+
+  .jounty-row{ display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap; margin-top:16px; }
+  .jounty-tile{ min-width:100px; padding:14px 18px; border-radius:12px; background:#fff; color:#111; font-weight:800; cursor:pointer; box-shadow:0 6px 20px rgba(0,0,0,0.15); border:1px solid rgba(0,0,0,0.08); text-align:center; user-select:none; }
+  .jounty-tile.selected{ background:linear-gradient(180deg,#fff8e6,#ffe8b3); border-color:var(--accent); }
+
+  .profile-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:16px; margin-top:16px; }
+  .profile-card-item{ border:2px solid #eee; border-radius:12px; padding:12px; text-align:center; background:#fff; cursor:pointer; position:relative; }
+  .profile-card-item.selected{ border-color:var(--accent); background:#fffdf5; }
+  .profile-avatar-preview{ width:64px; height:64px; border-radius:50%; margin:0 auto 8px; background:#e2e8f0; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.2rem; overflow:hidden; }
+  .profile-avatar-preview img{ width:100%; height:100%; object-fit:cover; }
+
+  .rating-grid{ display:flex; flex-direction:column; gap:14px; }
+  .rating-row{ display:flex; gap:12px; align-items:flex-start; justify-content:space-between; padding:10px; border-radius:10px; background:rgba(0,0,0,0.02); }
+  .pill{ appearance:none; border:1px solid rgba(0,0,0,0.1); background:#fff; padding:6px 12px; border-radius:999px; cursor:pointer; font-weight:800; color:#222; }
+  .pill.selected{ background: linear-gradient(90deg,#ffd93b,#ffb347); color:#2b1300; }
+  .score-pill{ display:inline-block; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.08); margin-right:6px; font-weight:700; color:#fff; font-size:0.85rem; }
+
+  .timer-display{font-size:0.9rem;color:#fff;font-weight:700;}
+  .timer-wrap{width:120px;height:8px;border-radius:999px;background:rgba(255,255,255,0.12);overflow:hidden;}
+  .timer-bar{height:100%;background:linear-gradient(90deg,#4cd964,#ffb347);transition:width 0.2s linear;}
+
+  .modal-backdrop{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); z-index:10200; }
+  .modal-card{ width:92%; max-width:650px; border-radius:14px; padding:20px; background:#fff; color:#111; box-shadow:0 30px 80px rgba(0,0,0,0.45); }
+
+  .modal-clone{
+    position:relative !important;
+    display:inline-flex !important;
+    margin:4px !important;
+    cursor:default !important;
+    background:#fff !important;
+    color:#111 !important;
+    border-radius:8px !important;
+    padding:6px 10px !important;
+    box-shadow:0 4px 12px rgba(0,0,0,0.1) !important;
+    font-weight:800 !important;
+    font-size:0.85rem !important;
+  }
+
+  input[type="text"]{ width:100%; padding:10px 12px; border-radius:8px; border:1px solid #ccc; font-size:0.95rem; margin-top:4px; }
+  .hidden-file{ display:none; }
+</style>
+</head>
+<body>
+<div class="container" id="app">
+
+  <div class="header">
+    <div>
+      <div class="title">Magnetic Mayhem</div>
+      <div class="subtitle">Drag magnets, park your marker, build sentences — then rate the chaos.</div>
+    </div>
+
+    <div class="controls-inline">
+      <div class="scoreboard" id="scoreboard"></div>
+      <div id="themeLabel" style="font-size:0.85rem; color:var(--muted)">Theme: Dark</div>
+      <button id="openWizardBtn" class="btn-primary">New Game</button>
+      <button id="openSettings" class="btn">Profiles & Settings</button>
+    </div>
+  </div>
+
+  <div class="top-bank">
+    <div class="bank-header">
+      <div><strong style="color:#fff">Word Pool</strong> (120 Magnets)</div>
+      <div class="bank-controls">
+        <button id="reshuffle" class="btn">Reshuffle Words</button>
+        <div class="timer-display" id="timerDisplay">Ready</div>
+        <div class="timer-wrap">
+          <div id="timerBar" class="timer-bar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="wordBank" class="word-bank"></div>
+
+    <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+      <div class="message" id="message" style="font-size:0.85rem;">Click "New Game" to setup players and start a match.</div>
+    </div>
+  </div>
+
+  <div id="playArea" class="play-area">
+    <div class="play-hint">Shared play area — park your marker, then drag words near it.</div>
+  </div>
+
+</div>
+
+<!-- Setup Wizard -->
+<div id="wizard" class="wizard-overlay" style="display:none">
+  <div class="wizard-card" id="wizardCard"></div>
+</div>
+
+<!-- Profiles & Settings -->
+<div id="settings" class="settings-overlay" style="display:none">
+  <div class="settings-card" id="settingsCard"></div>
+</div>
+
+<script>
+(function(){
+
+const wordBank = document.getElementById('wordBank');
+const playArea = document.getElementById('playArea');
+const scoreboardEl = document.getElementById('scoreboard');
+const themeLabel = document.getElementById('themeLabel');
+const timerDisplay = document.getElementById('timerDisplay');
+const timerBar = document.getElementById('timerBar');
+const messageEl = document.getElementById('message');
+const wizard = document.getElementById('wizard');
+const wizardCard = document.getElementById('wizardCard');
+const settingsOverlay = document.getElementById('settings');
+const settingsCard = document.getElementById('settingsCard');
+
+let chosenRounds = 4;
+let chosenTime = 90;
+let chosenTheme = 'dark';
+let chosenPlayers = 2;
+
+let wizardStep = 0;
+let playerProfiles = [null, null, null, null];
+let activePlayers = ['Player 1', 'Player 2', 'Player 3', 'Player 4'];
+let activeAvatars = [null, null, null, null];
+
+let markers = [];
+let magnets = [];
+let magnetId = 1;
+
+let roundActive = false;
+let currentRound = 0;
+let totalRounds = 4;
+let timeLeft = 0;
+let timer = null;
+let scores = [0,0,0,0];
+
+const PROFILE_KEY = 'mm_saved_profiles_v1';
+const VISIBLE_MAGNETS = 120;
+
+const PRONOUNS_HEAVY = [
+  "your", "your", "your", "his", "his", "her", "her", "they", "they", "them", "them", 
+  "my", "my", "my", "you", "you", "you", "me", "me", "us", "us", "our", "our", "their", "their", 
+  "he", "he", "she", "she", "it", "it", "we", "we", "yours", "hers", "theirs", "mine"
+];
+
+const DOING_WORDS_ING = [
+  "doing", "making", "eating", "drinking", "sleeping", "grabbing", "poking", "tickling", "slapping", "kissing", 
+  "licking", "chasing", "hiding", "flying", "sliding", "dancing", "cooking", "driving", "swimming", "screaming", 
+  "fighting", "playing", "watching", "washing", "fixing", "breaking", "thinking", "wanting", "needing", "holding",
+  "pushing", "pulling", "jumping", "running", "singing", "whispering", "shouting", "laughing", "crying", "cleaning"
+];
+
+const ACTION_MODAL_VERBS = [
+  "want", "need", "think", "hold", "can't", "shouldn't", "won't", "couldn't", "wouldn't", "don't", 
+  "doesn't", "didn't", "haven't", "isn't", "can", "could", "should", "would", "must", "might", "will", 
+  "do", "does", "did", "have", "has", "had", "grab", "push", "pull", "jump", "run", "kick", "bite", "slap"
+];
+
+const NOUNS_EXPANDED = [
+  "ricky gervais", "santa", "presents", "reindeer", "elf", "snow", "sleigh", "christmas tree", "stocking",
+  "turkey", "sprouts", "mince pie", "cracker", "tinsel", "eggnog", "chicken nugget", "starbucks coffee", 
+  "french toast", "cheese grater", "pizza", "burger", "chips", "sausage", "bacon", "pancake", "waffle", 
+  "ice cream", "chocolate cake", "guitar", "piano", "drums", "microphone", "headphones", "sun", "sea", 
+  "beach", "cocktails", "sunglasses", "towel", "suitcase", "passport", "plane", "hotel", "pool",
+  "puzzle", "playing cards", "board game", "dice", "chess", "poker", "crossword", "dishes", "laundry", 
+  "vacuum", "boobies", "willy", "tits", "bollocks", "shit", "minge", "piss", "knickers", "pants", "fart", "smelly", 
+  "georgie", "leslie", "beverley", "allen", "house", "cat", "dog", "dragon", "robot", "wizard", "sofa", "fridge"
+];
+
+const CONNECTORS_ARTICLES = [
+  "the", "a", "an", "and", "but", "or", "so", "because", "while", "where", "when", "if", "than", "that", 
+  "this", "these", "those", "is", "are", "was", "were", "be", "been", "to", "from", "in", "out", "on", 
+  "off", "over", "under", "then", "here", "there", "all", "any", "some", "at", "by", "for", "with", "about"
+];
+
+const ADJECTIVES_ADVERBS = [
+  "bright", "fuzzy", "awful", "slick", "weird", "quiet", "loud", "spicy", "sweet", "neon", "frozen", 
+  "brave", "wild", "soft", "sharp", "warm", "cold", "golden", "stinky", "rude", "cheeky", "tiny", "huge", 
+  "grumpy", "sleepy", "noisy", "awkward", "brilliant", "horrible", "wonky", "secret", "quickly", "slowly"
+];
+
+const PUNCTUATION_SUFFIXES = [".", ",", "?", "!", "ing", "ed", "er", "es", "s", "ly"];
+
+function clamp(v, a, b){ return v < a ? a : (v > b ? b : v); }
+function rand(min,max){ return Math.random()*(max-min)+min; }
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]];} return arr; }
+function escapeHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function setMessage(text){ if(messageEl) messageEl.textContent = text; }
+
+function loadSavedProfiles(){
+  try{ return JSON.parse(localStorage.getItem(PROFILE_KEY)) || []; }catch(e){ return []; }
+}
+function saveProfilesList(list){
+  try{ localStorage.setItem(PROFILE_KEY, JSON.stringify(list)); }catch(e){}
+}
+
+function generateBalancedRoundPool(){
+  const pool = [];
+  function pull(arr, count){ return shuffle(arr.slice()).slice(0, count); }
+
+  pool.push(...pull(PRONOUNS_HEAVY, 22));
+  pool.push(...pull(DOING_WORDS_ING, 20));
+  pool.push(...pull(ACTION_MODAL_VERBS, 18));
+  pool.push(...pull(NOUNS_EXPANDED, 28));
+  pool.push(...pull(CONNECTORS_ARTICLES, 20));
+  pool.push(...pull(ADJECTIVES_ADVERBS, 8));
+  pool.push(...pull(PUNCTUATION_SUFFIXES, 4));
+
+  return shuffle(pool).slice(0, VISIBLE_MAGNETS);
+}
+
+function applyTheme(name){
+  chosenTheme = name;
+  themeLabel.textContent = 'Theme: ' + (name.charAt(0).toUpperCase() + name.slice(1));
+  if(name==='pastel'){ document.body.style.background = 'linear-gradient(180deg,#ffe6ff 0%, #fff7f0 60%)'; document.documentElement.style.setProperty('--muted','#6b5b6b'); }
+  else if(name==='rainbow'){ document.body.style.background = 'linear-gradient(135deg,#ff4b6a 0%, #ffb347 25%, #ffd93b 50%, #4cd964 75%, #4da6ff 100%)'; document.documentElement.style.setProperty('--muted','#f5f5ff'); }
+  else if(name==='xmas'){ document.body.style.background = 'linear-gradient(180deg,#07220f 0%, #0b3b1a 60%)'; document.documentElement.style.setProperty('--muted','#cfe8d8'); }
+  else if(name==='light'){ document.body.style.background = 'linear-gradient(180deg,#f6f9fc 0%, #eef6ff 60%)'; document.documentElement.style.setProperty('--muted','#4b6b8b'); }
+  else { document.body.style.background = 'linear-gradient(180deg,#0a0c0f 0%, #06070a 60%)'; document.documentElement.style.setProperty('--muted','#bfc4d6'); }
+}
+
+function clearBoard(){
+  magnets.forEach(m=>{ if(m.el && m.el.parentNode) m.el.parentNode.removeChild(m.el); });
+  magnets = [];
+  magnetId = 1;
+  wordBank.innerHTML = '';
+  playArea.innerHTML = '<div class="play-hint">Shared play area — park your marker, then drag words near it.</div>';
+  markers = [];
+}
+
+function regenerateWordPool(){
+  clearBoard();
+  const pool = generateBalancedRoundPool();
+  const bankW = wordBank.clientWidth || 600;
+  const bankH = wordBank.clientHeight || 300;
+
+  pool.forEach(text => {
+    const el = document.createElement('div');
+    el.className = 'word-magnet';
+    el.textContent = text;
+    const angle = Math.round(rand(-10,10));
+    el.style.transform = `rotate(${angle}deg)`;
+
+    const x = Math.round(rand(10, Math.max(50, bankW - 140)));
+    const y = Math.round(rand(10, Math.max(20, bankH - 45)));
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    wordBank.appendChild(el);
+
+    const magnet = { id: magnetId++, text, el, inPlay:false, x, y, angle };
+    magnets.push(magnet);
+    makeMagnetDraggable(magnet);
+  });
+
+  createPlayerMarkers();
+}
+
+function makeMagnetDraggable(magnet){
+  const el = magnet.el;
+  let dragging = false;
+  let offsetX = 0, offsetY = 0;
+
+  function start(clientX, clientY){
+    dragging = true;
+    el.classList.add('dragging');
+    const r = el.getBoundingClientRect();
+    offsetX = clientX - r.left;
+    offsetY = clientY - r.top;
+  }
+
+  function move(clientX, clientY){
+    if(!dragging) return;
+    let x = clientX - offsetX;
+    let y = clientY - offsetY;
+
+    if(!magnet._absolute){
+      magnet._absolute = true;
+      document.body.appendChild(el);
+    }
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    magnet.x = x; magnet.y = y;
+  }
+
+  function end(clientX, clientY){
+    if(!dragging) return;
+    dragging = false;
+    el.classList.remove('dragging');
+
+    const playRect = playArea.getBoundingClientRect();
+    const bankRect = wordBank.getBoundingClientRect();
+
+    if(clientX >= playRect.left && clientX <= playRect.right && clientY >= playRect.top && clientY <= playRect.bottom){
+      magnet.inPlay = true;
+      magnet.x = clientX - playRect.left - (el.offsetWidth/2);
+      magnet.y = clientY - playRect.top - (el.offsetHeight/2);
+      playArea.appendChild(el);
+      el.style.left = magnet.x + 'px';
+      el.style.top = magnet.y + 'px';
+      magnet._absolute = false;
+    } else {
+      magnet.inPlay = false;
+      wordBank.appendChild(el);
+      magnet.x = Math.round(rand(10, Math.max(50, bankRect.width - 140)));
+      magnet.y = Math.round(rand(10, Math.max(20, bankRect.height - 45)));
+      el.style.left = magnet.x + 'px';
+      el.style.top = magnet.y + 'px';
+      magnet._absolute = false;
+    }
+  }
+
+  el.addEventListener('pointerdown', e => { e.preventDefault(); start(e.clientX, e.clientY); });
+  window.addEventListener('pointermove', e => { if(dragging) move(e.clientX, e.clientY); });
+  window.addEventListener('pointerup', e => { if(dragging) end(e.clientX, e.clientY); });
+}
+
+function createPlayerMarkers(){
+  markers.forEach(m=>{ if(m.el && m.el.parentNode) m.el.parentNode.removeChild(m.el); });
+  markers = [];
+
+  const areaW = playArea.clientWidth || 600;
+  const spacing = Math.floor(areaW / (chosenPlayers + 1));
+
+  for(let i=0; i<chosenPlayers; i++){
+    const el = document.createElement('div');
+    el.className = `player-marker marker-p${i+1}`;
+    el.style.left = (spacing * (i+1) - 42) + 'px';
+    el.style.top = '20px';
+
+    if(activeAvatars[i]){
+      el.innerHTML = `<img class="marker-img" src="${activeAvatars[i]}">`;
+    } else {
+      el.textContent = activePlayers[i].charAt(0).toUpperCase();
+    }
+
+    playArea.appendChild(el);
+    const marker = { idx: i, el, x: spacing * (i+1) - 42, y: 20 };
+    markers.push(marker);
+    makeMarkerDraggable(marker);
+  }
+}
+
+function makeMarkerDraggable(marker){
+  const el = marker.el;
+  let dragging = false;
+  let offsetX = 0, offsetY = 0;
+
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    dragging = true;
+    const r = el.getBoundingClientRect();
+    offsetX = e.clientX - r.left;
+    offsetY = e.clientY - r.top;
+  });
+
+  window.addEventListener('pointermove', e => {
+    if(!dragging) return;
+    const areaRect = playArea.getBoundingClientRect();
+    let x = e.clientX - areaRect.left - offsetX;
+    let y = e.clientY - areaRect.top - offsetY;
+    x = clamp(x, 0, areaRect.width - el.offsetWidth);
+    y = clamp(y, 0, areaRect.height - el.offsetHeight);
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    marker.x = x; marker.y = y;
+  });
+
+  window.addEventListener('pointerup', () => { dragging = false; });
+}
+
+function startRound(){
+  roundActive = true;
+  currentRound++;
+  timeLeft = chosenTime;
+  timerDisplay.textContent = timeLeft + 's';
+  updateTimerBar();
+  setMessage(`Round ${currentRound}/${totalRounds} active! Build your sentences!`);
+
+  if(timer) clearInterval(timer);
+  timer = setInterval(()=>{
+    timeLeft--;
+    timerDisplay.textContent = timeLeft + 's';
+    updateTimerBar();
+    if(timeLeft <= 0){ clearInterval(timer); timer = null; endRound(); }
+  }, 1000);
+}
+
+function updateTimerBar(){
+  const pct = Math.max(0, Math.min(1, timeLeft / chosenTime));
+  timerBar.style.width = (pct*100) + '%';
+}
+
+function endRound(){
+  roundActive = false;
+  timerDisplay.textContent = '0s';
+  timerBar.style.width = '0%';
+  setMessage('Time up! Rate each player\'s creations.');
+  openRatingsModal();
+}
+
+function openRatingsModal(){
+  const modal = document.createElement('div'); modal.className='modal-backdrop';
+  const card = document.createElement('div'); card.className='modal-card';
+
+  let html = `<div style="font-weight:900;font-size:1.2rem">Rate Round ${currentRound} Sentences</div>
+    <div style="font-size:0.85rem;color:#666;margin-top:4px">Assign points based on creativity and hilarity!</div>
+    <div class="rating-grid" style="margin-top:16px">`;
+
+  for(let i=0; i<chosenPlayers; i++){
+    html += `<div class="rating-row">
+      <div style="font-weight:800">${escapeHtml(activePlayers[i])}</div>
+      <div>
+        ${[1,2,3,4,5].map(pts => `<button class="pill" data-player="${i}" data-pts="${pts}">${pts}pt</button>`).join(' ')}
+      </div>
+    </div>`;
+  }
+
+  html += `</div>
+    <div style="display:flex;justify-content:flex-end;margin-top:20px;gap:10px">
+      <button id="submitRatings" class="btn-primary">Submit Scores & Next</button>
+    </div>`;
+
+  card.innerHTML = html;
+  modal.appendChild(card);
+  document.body.appendChild(modal);
+
+  card.querySelectorAll('.pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = btn.dataset.player;
+      card.querySelectorAll(`.pill[data-player="${p}"]`).forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+  });
+
+  card.querySelector('#submitRatings').addEventListener('click', () => {
+    for(let i=0; i<chosenPlayers; i++){
+      const sel = card.querySelector(`.pill.selected[data-player="${i}"]`);
+      if(sel) scores[i] += parseInt(sel.dataset.pts, 10);
+    }
+    updateScoreboard();
+    document.body.removeChild(modal);
+
+    if(currentRound < totalRounds){
+      regenerateWordPool();
+      startRound();
+    } else {
+      showFinalResults();
+    }
+  });
+}
+
+function showFinalResults(){
+  const modal = document.createElement('div'); modal.className='modal-backdrop';
+  const card = document.createElement('div'); card.className='modal-card';
+
+  let winnerIdx = 0;
+  for(let i=1; i<chosenPlayers; i++){ if(scores[i] > scores[winnerIdx]) winnerIdx = i; }
+
+  card.innerHTML = `<div style="font-weight:900;font-size:1.4rem;text-align:center">🎉 Game Over! 🎉</div>
+    <div style="text-align:center;font-size:1.1rem;margin-top:8px;font-weight:800;color:var(--accent)">
+      Winner: ${escapeHtml(activePlayers[winnerIdx])} (${scores[winnerIdx]} pts)
+    </div>
+    <div style="margin-top:20px">
+      ${activePlayers.slice(0, chosenPlayers).map((name, i) => `
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee">
+          <span>${escapeHtml(name)}</span>
+          <strong>${scores[i]} pts</strong>
+        </div>
+      `).join('')}
+    </div>
+    <div style="display:flex;justify-content:center;margin-top:20px">
+      <button id="restartGameBtn" class="btn-primary">Start New Game</button>
+    </div>`;
+
+  modal.appendChild(card);
+  document.body.appendChild(modal);
+
+  card.querySelector('#restartGameBtn').addEventListener('click', () => {
+    document.body.removeChild(modal);
+    openWizard();
+  });
+}
+
+function updateScoreboard(){
+  scoreboardEl.innerHTML = '';
+  for(let i=0; i<chosenPlayers; i++){
+    const pill = document.createElement('div');
+    pill.className = 'score-pill';
+    pill.textContent = `${activePlayers[i]}: ${scores[i]}`;
+    scoreboardEl.appendChild(pill);
+  }
+}
+
+// PROFILE & WIZARD LOGIC
+function openWizard(){
+  wizardStep = 0;
+  renderWizardStep();
+  wizard.style.display = 'flex';
+}
+
+function renderWizardStep(){
+  const saved = loadSavedProfiles();
+
+  if(wizardStep === 0){
+    wizardCard.innerHTML = `
+      <div style="font-weight:900;font-size:1.2rem">Step 1: How many players?</div>
+      <div class="jounty-row">
+        ${[2,3,4].map(n => `<div class="jounty-tile ${chosenPlayers===n?'selected':''}" data-num="${n}">${n} Players</div>`).join('')}
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:20px">
+        <button id="wizNext" class="btn-primary">Next: Player Setup</button>
+      </div>`;
+
+    wizardCard.querySelectorAll('.jounty-tile').forEach(t => {
+      t.addEventListener('click', () => {
+        chosenPlayers = parseInt(t.dataset.num, 10);
+        renderWizardStep();
+      });
+    });
+
+    wizardCard.querySelector('#wizNext').addEventListener('click', () => {
+      wizardStep = 1;
+      renderWizardStep();
+    });
+  }
+  else if(wizardStep === 1){
+    let html = `<div style="font-weight:900;font-size:1.2rem">Step 2: Player Profiles</div>
+      <div style="font-size:0.85rem;color:#666;margin-bottom:12px">Select a saved profile or type a name / upload photo.</div>`;
+
+    for(let i=0; i<chosenPlayers; i++){
+      html += `<div style="margin-top:12px;padding:12px;border:1px solid #ddd;border-radius:10px;background:#fff">
+        <div style="font-weight:800;margin-bottom:6px">Player ${i+1}</div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div style="width:48px;height:48px;border-radius:50%;background:#eee;overflow:hidden;display:flex;align-items:center;justify-content:center" id="pPrev${i}">
+            ${activeAvatars[i] ? `<img src="${activeAvatars[i]}" style="width:100%;height:100%;object-fit:cover">` : (activePlayers[i].charAt(0))}
+          </div>
+          <input type="text" id="pName${i}" value="${escapeHtml(activePlayers[i])}" placeholder="Name">
+          <input type="file" id="pFile${i}" class="hidden-file" accept="image/*">
+          <button class="btn" onclick="document.getElementById('pFile${i}').click()">Photo</button>
+        </div>`;
+
+      if(saved.length > 0){
+        html += `<div style="margin-top:8px;font-size:0.8rem;color:#666">Or select profile: 
+          ${saved.map(p => `<button class="btn load-prof-btn" data-player="${i}" data-name="${escapeHtml(p.name)}" data-img="${escapeHtml(p.image||'')}">${escapeHtml(p.name)}</button>`).join(' ')}
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
+    html += `<div style="display:flex;justify-content:space-between;margin-top:20px">
+      <button id="wizBack" class="btn">Back</button>
+      <button id="wizNext2" class="btn-primary">Next: Match Settings</button>
+    </div>`;
+
+    wizardCard.innerHTML = html;
+
+    for(let i=0; i<chosenPlayers; i++){
+      const nameInp = wizardCard.querySelector(`#pName${i}`);
+      const fileInp = wizardCard.querySelector(`#pFile${i}`);
+      nameInp.addEventListener('input', e => { activePlayers[i] = e.target.value || `Player ${i+1}`; });
+      fileInp.addEventListener('change', e => {
+        const file = e.target.files[0];
+        if(file){
+          const reader = new FileReader();
+          reader.onload = ev => {
+            activeAvatars[i] = ev.target.result;
+            renderWizardStep();
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    }
+
+    wizardCard.querySelectorAll('.load-prof-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        const p = parseInt(b.dataset.player, 10);
+        activePlayers[p] = b.dataset.name;
+        activeAvatars[p] = b.dataset.img || null;
+        renderWizardStep();
+      });
+    });
+
+    wizardCard.querySelector('#wizBack').addEventListener('click', () => { wizardStep = 0; renderWizardStep(); });
+    wizardCard.querySelector('#wizNext2').addEventListener('click', () => { wizardStep = 2; renderWizardStep(); });
+  }
+  else if(wizardStep === 2){
+    wizardCard.innerHTML = `
+      <div style="font-weight:900;font-size:1.2rem">Step 3: Game Rules & Theme</div>
+      <div style="margin-top:14px">
+        <label style="font-weight:800;display:block">Rounds:</label>
+        <div class="jounty-row">
+          ${[2,4,6,8].map(r => `<div class="jounty-tile round-tile ${chosenRounds===r?'selected':''}" data-val="${r}">${r} Rounds</div>`).join('')}
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <label style="font-weight:800;display:block">Timer per Round:</label>
+        <div class="jounty-row">
+          ${[60,90,120].map(t => `<div class="jounty-tile time-tile ${chosenTime===t?'selected':''}" data-val="${t}">${t}s</div>`).join('')}
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <label style="font-weight:800;display:block">Theme:</label>
+        <div class="jounty-row">
+          ${['dark','pastel','rainbow','xmas','light'].map(th => `<div class="jounty-tile theme-tile ${chosenTheme===th?'selected':''}" data-val="${th}">${th}</div>`).join('')}
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:20px">
+        <button id="wizBack2" class="btn">Back</button>
+        <button id="wizStart" class="btn-primary">Start Game!</button>
+      </div>`;
+
+    wizardCard.querySelectorAll('.round-tile').forEach(t => t.addEventListener('click', ()=>{ chosenRounds = parseInt(t.dataset.val,10); renderWizardStep(); }));
+    wizardCard.querySelectorAll('.time-tile').forEach(t => t.addEventListener('click', ()=>{ chosenTime = parseInt(t.dataset.val,10); renderWizardStep(); }));
+    wizardCard.querySelectorAll('.theme-tile').forEach(t => t.addEventListener('click', ()=>{ applyTheme(t.dataset.val); renderWizardStep(); }));
+
+    wizardCard.querySelector('#wizBack2').addEventListener('click', () => { wizardStep = 1; renderWizardStep(); });
+    wizardCard.querySelector('#wizStart').addEventListener('click', () => {
+      wizard.style.display = 'none';
+      scores = [0,0,0,0];
+      currentRound = 0;
+      totalRounds = chosenRounds;
+      updateScoreboard();
+      regenerateWordPool();
+      startRound();
+    });
+  }
+}
+
+// PROFILE MANAGEMENT MODAL
+document.getElementById('openSettings').addEventListener('click', () => {
+  const saved = loadSavedProfiles();
+  let html = `<div style="font-weight:900;font-size:1.2rem">Saved Player Profiles</div>
+    <div style="font-size:0.85rem;color:#666;margin-bottom:12px">Save player profiles locally for quick access.</div>
+    <div class="profile-grid">`;
+
+  saved.forEach((pr, idx) => {
+    html += `<div class="profile-card-item">
+      <div class="profile-avatar-preview">${pr.image ? `<img src="${pr.image}">` : pr.name.charAt(0)}</div>
+      <div style="font-weight:800;font-size:0.9rem">${escapeHtml(pr.name)}</div>
+      <button class="btn del-prof" data-idx="${idx}" style="margin-top:6px;font-size:0.75rem">Delete</button>
+    </div>`;
+  });
+
+  html += `</div>
+    <div style="margin-top:20px;padding-top:12px;border-top:1px solid #ddd">
+      <div style="font-weight:800">Add New Profile</div>
+      <input type="text" id="newProfName" placeholder="Profile Name">
+      <input type="file" id="newProfImg" class="hidden-file" accept="image/*">
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="btn" onclick="document.getElementById('newProfImg').click()">Choose Photo</button>
+        <button id="saveNewProf" class="btn-primary">Save Profile</button>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:20px">
+      <button id="closeSettings" class="btn">Close</button>
+    </div>`;
+
+  settingsCard.innerHTML = html;
+  settingsOverlay.style.display = 'flex';
+
+  let newImgData = null;
+  const imgInp = settingsCard.querySelector('#newProfImg');
+  if(imgInp){
+    imgInp.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if(file){
+        const reader = new FileReader();
+        reader.onload = ev => { newImgData = ev.target.result; };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+
+  const saveBtn = settingsCard.querySelector('#saveNewProf');
+  if(saveBtn){
+    saveBtn.addEventListener('click', () => {
+      const name = settingsCard.querySelector('#newProfName').value.trim();
+      if(!name) return;
+      const list = loadSavedProfiles();
+      list.push({ name, image: newImgData });
+      saveProfilesList(list);
+      settingsOverlay.style.display = 'none';
+    });
+  }
+
+  settingsCard.querySelectorAll('.del-prof').forEach(b => {
+    b.addEventListener('click', () => {
+      const idx = parseInt(b.dataset.idx, 10);
+      const list = loadSavedProfiles();
+      list.splice(idx, 1);
+      saveProfilesList(list);
+      settingsOverlay.style.display = 'none';
+    });
+  });
+
+  settingsCard.querySelector('#closeSettings').addEventListener('click', () => {
+    settingsOverlay.style.display = 'none';
+  });
+});
+
+document.getElementById('reshuffle').addEventListener('click', () => regenerateWordPool());
+document.getElementById('openWizardBtn').addEventListener('click', () => openWizard());
+
+// Auto open wizard on initial load
+openWizard();
+
+})();
+</script>
+</body>
+</html><!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Magnetic Mayhem</title>
 <link rel="manifest" href="manifest.json">
